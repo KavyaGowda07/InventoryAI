@@ -46,7 +46,7 @@ st.markdown("""
         border-radius: 8px;
         border: 1px solid #bbf7d0;
         font-size: 0.85rem;
-        word-break: break-all; /* Prevents text overflow */
+        word-break: break-all;
         font-weight: 500;
     }
     
@@ -96,7 +96,6 @@ with st.sidebar:
         with open(active_data_source, "wb") as f:
             f.write(uploaded_file.getbuffer())
             
-        # Unique UI element fix: Uses custom HTML block to stop title layout clipping
         st.markdown(f'<div class="sidebar-success-box">✓ Connected:<br>{uploaded_file.name}</div>', unsafe_allow_html=True)
         
         if "last_uploaded" not in st.session_state or st.session_state.last_uploaded != uploaded_file.name:
@@ -113,19 +112,22 @@ with st.sidebar:
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Helvetica", size=12)
-        pdf.cell(200, 10, text="InventoryAI Professional Chat History Log", new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(200, 10, text="--------------------------------------------------", new_x="LMARGIN", new_y="NEXT")
+        
+        # Version-safe cell writing syntax
+        pdf.cell(200, 10, "InventoryAI Professional Chat History Log", ln=1)
+        pdf.cell(200, 10, "--------------------------------------------------", ln=1)
         
         for msg in st.session_state.messages:
             speaker = "USER" if msg["role"] == "user" else "INVENTORYAI"
             clean_text = msg["content"].encode('latin-1', 'replace').decode('latin-1')
-            pdf.multi_cell(0, 8, text=f"[{speaker}]: {clean_text}")
-            pdf.cell(200, 5, text="", new_x="LMARGIN", new_y="NEXT")
+            pdf.multi_cell(0, 8, f"[{speaker}]: {clean_text}")
+            pdf.cell(200, 5, "", ln=1)
             
-        pdf_output = pdf.output()
+        pdf_output = pdf.output(dest='S') if hasattr(pdf, 'output') else pdf.output()
+        
         st.download_button(
             label="📥 Download Chat Log (PDF)",
-            data=bytes(pdf_output),
+            data=bytes(pdf_output) if isinstance(pdf_output, (bytes, bytearray)) else pdf_output.encode('latin-1'),
             file_name="inventory_ai_chat_log.pdf",
             mime="application/pdf",
             use_container_width=True
@@ -203,7 +205,7 @@ if user_query:
         st.session_state.messages.append({"role": "user", "content": user_query})
         st.rerun()
 
-# Run actual LLM calls on state change to avoid rendering hiccups
+# Run actual LLM calls on state change
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
     current_query = st.session_state.messages[-1]["content"]
     
